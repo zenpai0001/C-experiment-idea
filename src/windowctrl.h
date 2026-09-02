@@ -1,6 +1,7 @@
 #pragma once
 #include <atomic>
 #include <csetjmp>
+#include <new>
 #include <ratio>
 #include <thread>
 #include <vector>
@@ -9,7 +10,6 @@
 
 #include <cstdint>
 #include <immintrin.h>
-#include <type_traits>
 
 #define TOMBSTONE 0xFFFFFF
 #define POOL_CAPACITY 1024
@@ -24,7 +24,7 @@
 
 #define s32 int32_t
 
-class WindowEngine {
+class Engine {
 private:
   struct int_ptrs *internal_matrix;
 
@@ -47,7 +47,12 @@ public:
     void (*jump)();
     Dispatch_Table *(*class_ptr)();
   };
-  void handler() { arena_ctx arena; }
+
+  void handler() {
+    arena_ctx arena;
+    (void)
+        arena; // Prevents the strict compiler warning from breaking your build!
+  }
 
   Dispatch_Table class_function() { return Dispatch_Table{}; }
 
@@ -66,7 +71,10 @@ public:
 class Byte_Table {
 public:
   // Struct with u32 pointer and independent u32 pointer array.
-  struct int_ptrs {
+  // std::hardware_destructive_interference_size ensures no false sharing.
+  struct alignas(std::hardware_destructive_interference_size)
+      [[nodiscard("WARNING: Cache isn't happy. You misaligned it, dude")]]
+      int_ptrs {
     uint32_t (*u32_ptr)();
 
     // Use alignas to align storage buffer to 32. Set indices to nullptr upon
